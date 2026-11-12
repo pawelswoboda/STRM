@@ -1,0 +1,7 @@
+torch>=2.5
+numpy
+# dataset builders
+huggingface_hub
+argdantic
+pydantic
+tqdm
