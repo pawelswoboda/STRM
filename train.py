@@ -250,7 +250,8 @@ class CastedEmbedding(nn.Module):
 
 
 def rms_norm(x: torch.Tensor, eps: float) -> torch.Tensor:
-    return (x.float() * torch.rsqrt(x.float().square().mean(-1, keepdim=True) + eps)).to(x.dtype)
+    y = x.float()  # cast once: the backward then sums both gradient paths in float32
+    return (y * torch.rsqrt(y.square().mean(-1, keepdim=True) + eps)).to(x.dtype)
 
 
 class SwiGLU(nn.Module):
@@ -282,7 +283,7 @@ class Attention(nn.Module):
     def forward(self, h, cos, sin):
         B, L, D = h.shape
         q, k, v = self.qkv_proj(h).view(B, L, 3 * self.num_heads, self.head_dim).split(self.num_heads, dim=2)
-        q, k = ((t.float() * cos[:, None] + rotate_half(t.float()) * sin[:, None]).to(h.dtype) for t in (q, k))
+        q, k = ((t * cos[:, None] + rotate_half(t) * sin[:, None]).to(h.dtype) for t in (q.float(), k.float()))
         out = F.scaled_dot_product_attention(q.transpose(1, 2), k.transpose(1, 2), v.transpose(1, 2))
         return self.o_proj(out.transpose(1, 2).reshape(B, L, D))
 
