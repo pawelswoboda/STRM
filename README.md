@@ -92,14 +92,24 @@ python train.py --task sudoku --model strm --data-dir data/sudoku-extreme-1k-aug
     --init-from checkpoints/sudoku_strm_seed0/step_65104.pt
 ```
 
-## Pretrained checkpoint
+## Pretrained checkpoints
 
-`pretrained/sudoku_strm.pt` holds the EMA weights of an STRM trained on Sudoku-Extreme with the paper's settings
-(seed 1, 65,104 steps). It solves 92.1% of the 422,786 test puzzles. To score it:
+`pretrained/` holds the EMA weights of two STRM runs on Sudoku-Extreme with the paper's settings (seeds 0 and 1).
+For each run there is the final checkpoint and the best one, chosen by the intermediate evaluations on the first
+10,368 test puzzles.
+
+| file | seed | step | exact accuracy |
+|---|---|---|---|
+| `sudoku_strm_seed0_best.pt` | 0 | 39,060 | 91.3% |
+| `sudoku_strm_seed0_final.pt` | 0 | 65,104 | 90.3% |
+| `sudoku_strm_seed1_best.pt` | 1 | 52,080 | 93.0% (first 10,368 test puzzles) |
+| `sudoku_strm_seed1_final.pt` | 1 | 65,104 | 92.1% |
+
+Unless noted, the accuracy is on the whole test set (422,786 puzzles). To score a checkpoint:
 
 ```bash
 python train.py --task sudoku --model strm --data-dir data/sudoku-extreme-1k-aug-1000 --eval-only \
-    --init-from pretrained/sudoku_strm.pt
+    --init-from pretrained/sudoku_strm_seed1_final.pt
 ```
 
 ## Credits
