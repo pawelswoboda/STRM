@@ -92,6 +92,16 @@ python train.py --task sudoku --model strm --data-dir data/sudoku-extreme-1k-aug
     --init-from checkpoints/sudoku_strm_seed0/step_65104.pt
 ```
 
+## Pretrained checkpoint
+
+`pretrained/sudoku_strm.pt` holds the EMA weights of an STRM trained on Sudoku-Extreme with the paper's settings
+(seed 1, 65,104 steps). It solves 92.1% of the 422,786 test puzzles. To score it:
+
+```bash
+python train.py --task sudoku --model strm --data-dir data/sudoku-extreme-1k-aug-1000 --eval-only \
+    --init-from pretrained/sudoku_strm.pt
+```
+
 ## Credits
 
 - The network, the deep-supervision and ACT training, and `dataset/build_sudoku_dataset.py` and
