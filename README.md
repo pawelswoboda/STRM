@@ -7,6 +7,7 @@ the paper's settings.
 
 ```
 train.py                          both models, all three tasks: data loading, network, training, evaluation
+train_stream.py                   segment-free STRM on Sudoku-Extreme (not in the paper; see below)
 dataset/build_sudoku_dataset.py   Sudoku-Extreme, 1k training puzzles x 1k augmentations
 dataset/build_maze_aug_dataset.py Maze-Hard, 8 dihedral copies per training maze with recomputed labels
 dataset/build_ppbench_dataset.py  PPBench, 6 puzzle types at 10x10, 10 augmentations per training puzzle
@@ -111,6 +112,47 @@ Unless noted, the accuracy is on the whole test set (422,786 puzzles). To score 
 python train.py --task sudoku --model strm --data-dir data/sudoku-extreme-1k-aug-1000 --eval-only \
     --init-from pretrained/sudoku_strm_seed1_final.pt
 ```
+
+## Segment-free STRM (Sudoku-Extreme)
+
+`train_stream.py` is a later variant of STRM that is not in the paper. It keeps the state, the rates and the
+slow-channel readout, and drops segments, the halting head and rate jitter:
+
+- **Noise.** Every call adds Gaussian noise (std 0.3) to what the network sees, in training and at inference:
+  `s = (1 - a) * s + a * net(rms_norm(s) + noise + x)`.
+- **Residual.** The change of a call is the RMS difference of `rms_norm(s)` after and before it. The residual
+  is the mean change of the last 2 calls. A trajectory has converged when its residual is below a threshold.
+- **Training.** Each puzzle runs 4 trajectories, which differ only by their noise. An optimizer micro-step
+  advances them by a random number of calls without gradient (0 to 14) and then a random number with gradient
+  (3 to 11), and detaches the state. The answer is decoded after every call with gradient; the call `j` calls
+  before the last has weight `0.5^j`. Only the trajectory with the lowest answer loss gets the answer loss
+  (winner-take-all). A convergence loss on the same trajectory trains the residual to be below 0.09 exactly
+  when the decoded answer is right. A puzzle is replaced when one of its trajectories has converged, or after
+  336 calls.
+- **Inference.** The residual is checked after every call, and a puzzle stops at the first call at which it is
+  below 0.07 (`--halt-delta`), or after 1,344 calls. With several trajectories per puzzle, the first one to
+  converge gives the answer. No labels are used.
+
+```bash
+python train_stream.py --data-dir data/sudoku-extreme-1k-aug-1000 --seed 0
+python train_stream.py --data-dir data/sudoku-extreme-1k-aug-1000 --eval-only \
+    --init-from pretrained/sudoku_strm_stream_step10000.pt
+```
+
+Training takes 25,000 steps (about 11 hours on an RTX 5090, 27 GB with the default micro-batch of 96 puzzles).
+Every 2,500 steps the script evaluates the EMA weights on the first 10,368 test puzzles, with 1 and with 4
+trajectories per puzzle, and saves them. `--eval-examples 0` scores the whole test set.
+
+`pretrained/sudoku_strm_stream_step10000.pt` holds the EMA weights of one run (seed 0) at step 10,000. On the
+first 10,368 test puzzles it scores:
+
+| trajectories per puzzle | exact accuracy | mean calls per trajectory |
+|---|---|---|
+| 1 | 99.29% | 83.2 |
+| 4 | 99.82% | 36.6 |
+
+The checkpoint was chosen by these intermediate evaluations, so the numbers are optimistic. Accuracy of this
+run peaks between steps 10,000 and 15,000 and falls afterwards, so the last checkpoint is not the best one.
 
 ## Credits
 
